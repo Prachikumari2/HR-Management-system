@@ -1,0 +1,121 @@
+// src/App.tsx
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface Employee {
+  _id: string;
+  name: string;
+  email: string;
+  jobRole: string;
+  salary: number;
+}
+
+function App() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [newEmployee, setNewEmployee] = useState<Omit<Employee, '_id'>>({
+    name: '',
+    email: '',
+    jobRole: '',
+    salary: 0,
+  });
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get<Employee[]>('/api/employees');
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewEmployee((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await axios.post('/api/employees', newEmployee);
+      setNewEmployee({ name: '', email: '', jobRole: '', salary: 0 });
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error adding employee:', error);
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Employee Information</h1>
+      <form onSubmit={handleSubmit} className="mb-8">
+        <div className="grid grid-cols-2 gap-4">
+          <input
+            type="text"
+            name="name"
+            value={newEmployee.name}
+            onChange={handleInputChange}
+            placeholder="Name"
+            className="border p-2 rounded"
+            required
+          />
+          <input
+            type="email"
+            name="email"
+            value={newEmployee.email}
+            onChange={handleInputChange}
+            placeholder="Email"
+            className="border p-2 rounded"
+            required
+          />
+          <input
+            type="text"
+            name="jobRole"
+            value={newEmployee.jobRole}
+            onChange={handleInputChange}
+            placeholder="Job Role"
+            className="border p-2 rounded"
+            required
+          />
+          <input
+            type="number"
+            name="salary"
+            value={newEmployee.salary}
+            onChange={handleInputChange}
+            placeholder="Salary"
+            className="border p-2 rounded"
+            required
+          />
+        </div>
+        <button type="submit" className="mt-4 bg-blue-500 text-white px-4 py-2 rounded">
+          Add Employee
+        </button>
+      </form>
+      <table className="w-full border-collapse border">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border p-2">Name</th>
+            <th className="border p-2">Email</th>
+            <th className="border p-2">Job Role</th>
+            <th className="border p-2">Salary</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.map((employee) => (
+            <tr key={employee._id}>
+              <td className="border p-2">{employee.name}</td>
+              <td className="border p-2">{employee.email}</td>
+              <td className="border p-2">{employee.jobRole}</td>
+              <td className="border p-2">${employee.salary.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default App;

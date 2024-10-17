@@ -1,0 +1,52 @@
+// employee-service.ts
+import express from 'express';
+import { MongoClient, ObjectId } from 'mongodb';
+
+const app = express();
+const PORT = process.env.PORT || 4001;
+
+app.use(express.json());
+
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/hr_management';
+const client = new MongoClient(uri);
+
+interface Employee {
+  _id?: ObjectId;
+  name: string;
+  email: string;
+  jobRole: string;
+  salary: number;
+}
+
+app.get('/employees', async (req, res) => {
+  try {
+    await client.connect();
+    const database = client.db('hr_management');
+    const employees = database.collection<Employee>('employees');
+    const result = await employees.find({}).toArray();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
+});
+
+app.post('/employees', async (req, res) => {
+  try {
+    await client.connect();
+    const database = client.db('hr_management');
+    const employees = database.collection<Employee>('employees');
+    const newEmployee: Employee = req.body;
+    const result = await employees.insertOne(newEmployee);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(Employee Information Service running on port ${PORT});
+});

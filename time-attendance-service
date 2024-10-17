@@ -1,0 +1,91 @@
+// time-attendance-service.ts
+import express from 'express';
+import { MongoClient, ObjectId } from 'mongodb';
+import axios from 'axios';
+
+const app = express();
+const PORT = process.env.PORT || 4002;
+
+app.use(express.json());
+
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/hr_management';
+const client = new MongoClient(uri);
+
+interface Attendance {
+  _id?: ObjectId;
+  employeeId: ObjectId;
+  checkIn: Date;
+  checkOut: Date | null;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+app.post('/check-in', async (req, res) => {
+  try {
+    await client.connect();
+    const database = client.db('hr_management');
+    const attendance = database.collection<Attendance>('attendance');
+
+    const { employeeId, latitude, longitude } = req.body;
+
+    // Check geofence
+    const isWithinGeofence = await checkGeofence(latitude, longitude);
+    if (!isWithinGeofence) {
+      return res.status(400).json({ error: 'Employee is not within the allowed geofence' });
+    }
+
+    const newAttendance: Attendance = {
+      employeeId: new ObjectId(employeeId),
+      checkIn: new Date(),
+      checkOut: null,
+      location: { latitude, longitude },
+    };
+
+    const result = await attendance.insertOne(newAttendance);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
+});
+
+app.post('/check-out/:id', async (req, res) => {
+  try {
+    await client.connect();
+    const database = client.db('hr_management');
+    const attendance = database.collection<Attendance>('attendance');
+
+    const { id } = req.params;
+    const result = await attendance.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { checkOut: new Date() } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+
+    res.json({ message: 'Check-out successful' });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
+});
+
+async function checkGeofence(latitude: number, longitude: number): Promise<boolean> {
+  try {
+    const response = await axios.post('http://geofencing-service:4004/check', { latitude, longitude });
+    return response.data.isWithinGeofence;
+  } catch (error) {
+    console.error('Error checking geofence:', error);
+    return false;
+  }
+}
+
+app.listen(PORT, () => {
+  console.log(Time and Attendance Service running on port ${PORT});
+});
